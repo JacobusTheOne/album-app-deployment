@@ -1,0 +1,47 @@
+
+services:
+  api:
+    build:
+      context: ../containerapps-albumapi-python/src
+    image: album-api:dev
+    environment:
+      DATABASE_URL: sqlite:////data/albums.db
+    volumes:
+      - album-data:/data
+    ports:
+      - "8080:8080"
+    networks:
+      - album-network
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ../code-to-cloud-ui/src
+    image: album-frontend:dev
+    environment:
+      API_BASE_URL: http://api:8080
+      TIMEOUT: "15000"
+      BACKGROUND_COLOR: "#ffffff"
+    ports:
+      - "3000:3000"
+    networks:
+      - album-network
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  album-data:
+
+networks:
+  album-network:
+    driver: bridge
