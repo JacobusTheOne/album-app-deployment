@@ -1,0 +1,9 @@
+{
+  "name": "frontend-main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:JacobusTheOne@47494589/containerapps-albumui@1439957998:ref:refs/heads/main",
+  "description": "GitHub Actions deployment from frontend main branch",
+  "audiences": [
+    "api://AzureADTokenExchange"
+  ]
+}

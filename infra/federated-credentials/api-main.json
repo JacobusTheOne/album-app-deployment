@@ -1,0 +1,9 @@
+{
+  "name": "api-main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:JacobusTheOne@47494589/containerapps-albumapi-python@1441050682:ref:refs/heads/main",
+  "description": "GitHub Actions deployment from API main branch",
+  "audiences": [
+    "api://AzureADTokenExchange"
+  ]
+}
