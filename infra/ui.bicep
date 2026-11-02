@@ -13,11 +13,6 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
 }
 
-var acrPullRoleId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-)
-
 var tags = {
   project: 'album-app'
   environment: 'development'
@@ -29,21 +24,10 @@ var tags = {
 // environment, which is fine: the frontend calls it server side.
 var apiBaseUrl = 'http://album-api.internal.${environment.properties.defaultDomain}'
 
-// See api.bicep: the grant has to exist before the app's first revision pulls.
-resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+// See api.bicep: created out of band with its AcrPull grant, so CI needs no
+// role-assignment rights.
+resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: 'id-album-ui-acrpull'
-  location: location
-  tags: tags
-}
-
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, pullIdentity.id, 'AcrPull')
-  scope: acr
-  properties: {
-    roleDefinitionId: acrPullRoleId
-    principalId: pullIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
 }
 
 resource ui 'Microsoft.App/containerApps@2024-03-01' = {
@@ -95,9 +79,6 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = {
     }
   }
   tags: tags
-  dependsOn: [
-    acrPull
-  ]
 }
 
 output uiId string = ui.id

@@ -16,34 +16,18 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
 }
 
-var acrPullRoleId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-)
-
 var tags = {
   project: 'album-app'
   environment: 'development'
   managedBy: 'bicep'
 }
 
-// A user-assigned identity can be granted AcrPull before the container app
-// exists. A system-assigned identity cannot: the grant can only follow the app
-// that owns it, so the first revision fails to pull its image.
-resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+// Created out of band along with its AcrPull grant on the registry, so the
+// deployment identity needs no role-assignment rights in CI. Because the
+// identity outlives the app, the grant is already in place before a newly
+// created app pulls its first image.
+resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: 'id-album-api-acrpull'
-  location: location
-  tags: tags
-}
-
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, pullIdentity.id, 'AcrPull')
-  scope: acr
-  properties: {
-    roleDefinitionId: acrPullRoleId
-    principalId: pullIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
 }
 
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
@@ -131,11 +115,6 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     }
   }
   tags: tags
-  // Nothing in this resource references acrPull, so the ordering has to be
-  // stated outright or the first revision may pull before the grant lands.
-  dependsOn: [
-    acrPull
-  ]
 }
 
 output apiId string = api.id
