@@ -82,6 +82,21 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           ]
           probes: [
             {
+              // The container runs migrations before uvicorn listens, and the
+              // database is serverless with auto-pause, so a resume can hold
+              // startup for a couple of minutes. A startup probe suspends
+              // liveness and readiness until the process is up, so slow
+              // startup is not mistaken for a hung process and restarted.
+              // failureThreshold x periodSeconds is the budget allowed.
+              type: 'Startup'
+              httpGet: {
+                path: '/health'
+                port: 8080
+              }
+              periodSeconds: 10
+              failureThreshold: 30
+            }
+            {
               // Liveness only checks the process is listening, so it must not
               // depend on SQL: a database blip should not restart the replica.
               type: 'Liveness'

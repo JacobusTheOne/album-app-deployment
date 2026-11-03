@@ -1,4 +1,3 @@
-
 param location string = 'brazilsouth'
 param environmentName string = 'cae-album-private'
 param sqlServerName string = 'sql-album-dev-jj'
@@ -34,6 +33,9 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
         enabled: false
       }
     }
+    appLogsConfiguration: {
+      destination: 'azure-monitor'
+    }
   }
   tags: {
     project: 'album-app'
@@ -55,6 +57,17 @@ resource sqlVnetRule 'Microsoft.Sql/servers/virtualNetworkRules@2025-01-01' = {
     ignoreMissingVnetServiceEndpoint: false
     virtualNetworkSubnetId: network.outputs.containerAppsSubnetId
   }
+}
+
+module monitoring './monitoring.bicep' = {
+  name: 'album-monitoring'
+  params: {
+    location: location
+    environmentName: environmentName
+  }
+  dependsOn: [
+    containerAppsEnvironment
+  ]
 }
 
 output containerAppsEnvironmentId string = containerAppsEnvironment.id
