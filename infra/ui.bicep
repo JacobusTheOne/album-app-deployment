@@ -1,6 +1,33 @@
+// Defaults describe the development environment, so the publishing workflow
+// keeps working while passing only the image tag. Every other environment
+// supplies all of these through infra/parameters/<environment>/ui.bicepparam.
+@description('Azure region.')
 param location string = 'brazilsouth'
+
+@description('Which deployment environment this app belongs to. Drives the environment tag.')
+@allowed([
+  'development'
+  'staging'
+  'production'
+])
+param environmentType string = 'development'
+
+@description('Container Apps managed environment to deploy into. Must already exist.')
 param environmentName string = 'cae-album-private'
+
+@description('Container registry holding the UI image. One registry is shared by all environments.')
 param acrName string = 'ca7e04894508acr'
+
+@description('User-assigned identity that pulls from the registry. Created out of band per environment along with its AcrPull grant, so this name must match the target environment.')
+param pullIdentityName string = 'id-album-ui-acrpull'
+
+@description('Minimum replicas.')
+@minValue(0)
+param minReplicas int = 0
+
+@description('Maximum replicas.')
+@minValue(1)
+param maxReplicas int = 1
 
 @description('Image tag to deploy. Supplied by the publishing workflow; no default, so a missing argument fails the deployment instead of silently redeploying a stale image.')
 param uiImageTag string
@@ -15,7 +42,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
 
 var tags = {
   project: 'album-app'
-  environment: 'development'
+  environment: environmentType
   managedBy: 'bicep'
 }
 
@@ -27,7 +54,7 @@ var apiBaseUrl = 'http://album-api.internal.${environment.properties.defaultDoma
 // See api.bicep: created out of band with its AcrPull grant, so CI needs no
 // role-assignment rights.
 resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
-  name: 'id-album-ui-acrpull'
+  name: pullIdentityName
 }
 
 resource ui 'Microsoft.App/containerApps@2024-03-01' = {
@@ -73,8 +100,8 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
-        maxReplicas: 1
+        minReplicas: minReplicas
+        maxReplicas: maxReplicas
       }
     }
   }

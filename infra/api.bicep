@@ -1,13 +1,46 @@
+// Defaults describe the development environment, so the publishing and
+// rollback workflows keep working while passing only the image tag. Every
+// other environment supplies all of these through its parameter file in
+// infra/parameters/<environment>/api.bicepparam.
+@description('Azure region.')
 param location string = 'brazilsouth'
+
+@description('Which deployment environment this app belongs to. Drives the environment tag.')
+@allowed([
+  'development'
+  'staging'
+  'production'
+])
+param environmentType string = 'development'
+
+@description('Container Apps managed environment to deploy into. Must already exist.')
 param environmentName string = 'cae-album-private'
+
+@description('Container registry holding the API image. One registry is shared by all environments; image tags are commit SHAs, so they never collide.')
 param acrName string = 'ca7e04894508acr'
+
+@description('User-assigned identity that pulls from the registry. Created out of band per environment along with its AcrPull grant, so this name must match the target environment.')
+param pullIdentityName string = 'id-album-api-acrpull'
+
+@description('Minimum replicas. Zero lets the app and its serverless database scale to nothing; one keeps the readiness probe querying SQL continuously, which prevents the database from auto-pausing.')
+@minValue(0)
+param minReplicas int = 0
+
+@description('Maximum replicas.')
+@minValue(1)
+param maxReplicas int = 1
 
 @description('Image tag to deploy. Supplied by the publishing workflow; no default, so a missing argument fails the deployment instead of silently redeploying a stale image.')
 param apiImageTag string
 
 @secure()
 param databaseUrl string
+@description('Name of the existing Key Vault.')
+param keyVaultName string = 'kv-album-dev-jj'
 
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+}
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
 }
@@ -18,7 +51,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
 
 var tags = {
   project: 'album-app'
-  environment: 'development'
+  environment: environmentType
   managedBy: 'bicep'
 }
 
@@ -27,7 +60,7 @@ var tags = {
 // identity outlives the app, the grant is already in place before a newly
 // created app pulls its first image.
 resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
-  name: 'id-album-api-acrpull'
+  name: pullIdentityName
 }
 
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
@@ -79,6 +112,14 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'DATABASE_URL'
               secretRef: 'database-url'
             }
+            {
+              name: 'KEY_VAULT_URL'
+              value: keyVault.properties.vaultUri
+            }
+            {
+              name: 'KEY_VAULT_MANAGED_IDENTITY_CLIENT_ID'
+              value: pullIdentity.properties.clientId
+            }
           ]
           probes: [
             {
@@ -122,10 +163,11 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             }
           ]
         }
+
       ]
       scale: {
-        minReplicas: 0
-        maxReplicas: 1
+        minReplicas: minReplicas
+        maxReplicas: maxReplicas
       }
     }
   }

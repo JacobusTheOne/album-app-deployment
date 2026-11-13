@@ -1,7 +1,22 @@
+@description('Azure region.')
+param location string
 
-param location string = 'brazilsouth'
-param environmentName string = 'cae-album-private'
-param workspaceName string = 'law-album-dev-jj'
+@description('Container Apps managed environment whose logs are collected.')
+param environmentName string
+
+@description('Log Analytics workspace name.')
+param workspaceName string
+
+@description('Retention in days.')
+@minValue(30)
+@maxValue(730)
+param retentionInDays int
+
+@description('Daily ingestion cap in GB.')
+param dailyQuotaGb int
+
+@description('Tags applied to the workspace. Passed in from main.bicep.')
+param tags object
 
 // Create the central Log Analytics workspace.
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07-01' = {
@@ -11,19 +26,15 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07
     sku: {
       name: 'PerGB2018'
     }
-    retentionInDays: 30
+    retentionInDays: retentionInDays
     workspaceCapping: {
-      dailyQuotaGb: 1
+      dailyQuotaGb: dailyQuotaGb
     }
     features: {
       disableLocalAuth: false
     }
   }
-  tags: {
-    project: 'album-app'
-    environment: 'development'
-    managedBy: 'bicep'
-  }
+  tags: tags
 }
 
 // Reference the existing Container Apps environment.
@@ -49,7 +60,6 @@ resource diagnosticSetting 'Microsoft.Insights/diagnosticSettings@2021-05-01-pre
     ]
   }
 }
-
 
 output workspaceId string = logAnalyticsWorkspace.id
 output workspaceName string = logAnalyticsWorkspace.name
