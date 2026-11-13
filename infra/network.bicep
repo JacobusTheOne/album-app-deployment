@@ -1,11 +1,24 @@
+@description('Azure region.')
+param location string
 
-param location string = 'brazilsouth'
-param vnetName string = 'vnet-album-private'
+@description('Virtual network name.')
+param vnetName string
 
-param vnetAddressPrefix string = '10.0.0.0/16'
-param containerAppsSubnetPrefix string = '10.0.0.0/23'
-param privateEndpointSubnetPrefix string = '10.0.2.0/24'
+@description('Virtual network address range.')
+param vnetAddressPrefix string
 
+@description('Container Apps subnet address range.')
+param containerAppsSubnetPrefix string
+
+@description('Private endpoints subnet address range.')
+param privateEndpointSubnetPrefix string
+
+@description('Tags applied to every resource here. Passed in from main.bicep so one definition covers the whole stack.')
+param tags object
+
+// Fixed by Azure: private endpoint DNS for Azure SQL only resolves from this
+// zone name. It is therefore not parameterisable, which also means two
+// environments cannot share a resource group.
 #disable-next-line no-hardcoded-env-urls
 var sqlPrivateDnsZoneName = 'privatelink.database.windows.net'
 
@@ -48,11 +61,13 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
       }
     ]
   }
+  tags: tags
 }
 
 resource sqlPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: sqlPrivateDnsZoneName
   location: 'global'
+  tags: tags
 }
 
 resource sqlPrivateDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
@@ -65,6 +80,7 @@ resource sqlPrivateDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLink
       id: vnet.id
     }
   }
+  tags: tags
 }
 
 output vnetId string = vnet.id
