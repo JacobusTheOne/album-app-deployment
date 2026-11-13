@@ -1,0 +1,52 @@
+
+name: Infrastructure CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/validate-infrastructure.yml'
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/validate-infrastructure.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-bicep:
+    name: Validate Bicep templates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Azure CLI
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az bicep install
+
+      - name: Build main infrastructure template
+        run: az bicep build --file infra/main.bicep
+
+      - name: Build API template
+        run: az bicep build --file infra/api.bicep
+
+      - name: Build UI template
+        run: az bicep build --file infra/ui.bicep
+
+      - name: Validate parameter file syntax
+        run: |
+          find infra/parameters -name '*.bicepparam' -print0 |
+          while IFS= read -r -d '' file; do
+            echo "Validating $file"
+            az bicep build-params --file "$file"
+          done
