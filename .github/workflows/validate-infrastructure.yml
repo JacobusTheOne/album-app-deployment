@@ -43,10 +43,16 @@ jobs:
       - name: Build UI template
         run: az bicep build --file infra/ui.bicep
 
+      
       - name: Validate parameter file syntax
+        env:
+          API_IMAGE_TAG: ci-validation
+          DATABASE_URL: sqlserver://ci-validation
+          UI_IMAGE_TAG: ci-validation
         run: |
           find infra/parameters -name '*.bicepparam' -print0 |
           while IFS= read -r -d '' file; do
             echo "Validating $file"
             az bicep build-params --file "$file"
           done
+
